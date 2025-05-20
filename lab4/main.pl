@@ -123,12 +123,13 @@ home_page(_Request) :-
     % Children table
     findall(tr([class='border-b'],
                [td([class='px-4 py-2'], FamilyID),
+	        td([class='px-4 py-2'], ChildID),
                 td([class='px-4 py-2'], ChildName)]),
             odbc_query(Connection,
-                       'SELECT c.family_id, p.last_name
+                       'SELECT c.family_id, c.child_id, p.last_name
                         FROM children c
                         JOIN person p ON c.child_id = p.id',
-                       row(FamilyID, ChildName)),
+                       row(FamilyID, ChildID, ChildName)),
             ChildRows),
     odbc_disconnect(Connection),
     reply_html_page(
@@ -160,16 +161,19 @@ home_page(_Request) :-
              table([class='w-full border-collapse border border-gray-300'],
                    [tr([class='bg-gray-100'],
                         [th([class='px-4 py-2'], 'Family ID'),
-                         th([class='px-4 py-2'], 'Child')])|ChildRows]),
+			 th([class='px-4 py-2'], 'Chidl ID'),
+                         th([class='px-4 py-2'], 'Child LastName')])|ChildRows]),
              % Action buttons
              div([class='mt-6 flex flex-wrap gap-4'],
-                 [form([action('/add_person'), method(get), class='inline-block'],
+                 [
+		 form([action('/add_person'), method(get), class='inline-block'],
                        button([type=submit, class='bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600'], 'Add Person')),
-                  form([action('/update_person'), method(get), class='inline-block'],
+		 form([action('/update_person'), method(get), class='inline-block'],
                        button([type=submit, class='bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600'], 'Update Person')),
-                  form([action('/delete_person'), method(post), class='inline-block'],
+		 form([action('/delete_person'), method(post), class='inline-block'],
                        [input([type=text, name=id, placeholder='Person ID', class='border p-2 mr-2']),
                         button([type=submit, class='bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600'], 'Delete Person')]),
+
                   form([action('/add_family'), method(get), class='inline-block'],
                        button([type=submit, class='bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600'], 'Add Family')),
                   form([action('/delete_family'), method(post), class='inline-block'],
@@ -192,9 +196,8 @@ home_page(_Request) :-
                   form([action('/query_wives'), method(get), class='inline-block'],
                        button([type=submit, class='bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600'], 'Working Wives > 85000')),
                   form([action('/query_two_children'), method(get), class='inline-block'],
-                       button([type=submit, class='bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600'], 'Families with 2 Children')),
-                  form([action('/query_oldest_child'), method(get), class='inline-block'],
-                       button([type=submit, class='bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600'], 'Oldest Child'))])
+                       button([type=submit, class='bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600'], 'Families with 2 Children'))
+                  ])
             ])).
 
 % Add person page
@@ -221,7 +224,7 @@ add_person_page(_Request) :-
                        [label([class='font-semibold'], 'Gender'),
                         select([name=gender, class='border p-2 rounded'],
                                [option([value='мужской'], 'Male'),
-                                option([value='женский'], 'Female')])])),
+                                option([value='женский'], 'Female')])]),
                    div([class='flex flex-col'],
                        [label([class='font-semibold'], 'Monthly Income'),
                         input([type=number, name=monthly_income, class='border p-2 rounded'])]),
@@ -229,7 +232,7 @@ add_person_page(_Request) :-
                        [label([class='font-semibold'], 'Is Twin'),
                         select([name=is_twin, class='border p-2 rounded'],
                                [option([value='true'], 'Yes'),
-                                option([value='false'], 'No')])])),
+                                option([value='false'], 'No')])]),
                    div([class='flex space-x-4'],
                        [input([type=submit, value='Add', class='bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600']),
                         a([href='/', class='bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600'], 'Back')])])
@@ -291,7 +294,7 @@ update_person_page(_Request) :-
                        [label([class='font-semibold'], 'Gender'),
                         select([name=gender, class='border p-2 rounded'],
                                [option([value='мужской'], 'Male'),
-                                option([value='женский'], 'Female')])])),
+                                option([value='женский'], 'Female')])]),
                    div([class='flex flex-col'],
                        [label([class='font-semibold'], 'Monthly Income'),
                         input([type=number, name=monthly_income, class='border p-2 rounded'])]),
@@ -299,7 +302,7 @@ update_person_page(_Request) :-
                        [label([class='font-semibold'], 'Is Twin'),
                         select([name=is_twin, class='border p-2 rounded'],
                                [option([value='true'], 'Yes'),
-                                option([value='false'], 'No')])])),
+                                option([value='false'], 'No')])]),
                    div([class='flex space-x-4'],
                        [input([type=submit, value='Update', class='bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600']),
                         a([href='/', class='bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600'], 'Back')])])
@@ -569,35 +572,3 @@ query_two_children(_Request) :-
              a([href='/', class='bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 mt-4 inline-block'], 'Back')
             ])).
 
-% Query 5: Find oldest child
-query_oldest_child(_Request) :-
-    odbc_connect('SWI-Prolog Discourse', Connection, []),
-    (odbc_query(Connection,
-                'SELECT p.first_name, p.patronymic, p.last_name, p.birth_year
-                 FROM person p
-                 JOIN children c ON p.id = c.child_id
-                 ORDER BY p.birth_year ASC
-                 LIMIT 1',
-                row(FirstName, Patronymic, LastName, BirthYear)) ->
-        Rows = [tr([class='border-b'],
-                   [td([class='px-4 py-2'], FirstName),
-                    td([class='px-4 py-2'], Patronymic),
-                    td([class='px-4 py-2'], LastName),
-                    td([class='px-4 py-2'], BirthYear)]),
-        Message = '' ;
-        Rows = [], Message = 'No children found.'),
-    odbc_disconnect(Connection),
-    reply_html_page(
-        [title('Oldest Child'),
-         link([rel='stylesheet', href='https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css'])],
-        div([class='container mx-auto p-4'],
-            [h1([class='text-2xl font-bold mb-4'], 'Oldest Child'),
-             p([class='text-gray-600'], Message),
-             table([class='w-full border-collapse border border-gray-300'],
-                   [tr([class='bg-gray-100'],
-                        [th([class='px-4 py-2'], 'First Name'),
-                         th([class='px-4 py-2'], 'Patronymic'),
-                         th([class='px-4 py-2'], 'Last Name'),
-                         th([class='px-4 py-2'], 'Birth Year')])|Rows]),
-             a([href='/', class='bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 mt-4 inline-block'], 'Back')
-            ])).
