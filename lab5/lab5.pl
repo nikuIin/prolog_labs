@@ -1,3 +1,4 @@
+:- encoding(utf8).
 :- use_module(library(pio)).
 :- use_module(library(sgml)).
 :- use_module(library(lists)).
@@ -36,7 +37,7 @@ clear_db :-
     retractall(family(_, _, _)).
 
 % Парсинг XML
-parse_xml([element(people, _, People)]) :-
+parse_xml([element(family_data, _, People)]) :-
     parse_people(People).
 parse_xml([]) :-
     format('Предупреждение: XML пустой~n'), !.
@@ -114,7 +115,7 @@ save_to_xml(File) :-
                  children_to_xml(Children, ChildElements)),
                 Families),
          append(People, Families, AllElements),
-         XML = [element(people, [], AllElements)],
+         XML = [element(family_data, [], AllElements)],
          open(File, write, Stream),
          xml_write(Stream, XML, [header(true)]),
          close(Stream)),
@@ -140,99 +141,93 @@ format_person(person(FirstName, Patronymic, LastName, _, _, _, _)) :-
 format_person_with_year(person(FirstName, Patronymic, LastName, BirthYear, _, _, _)) :-
     format('~w ~w ~w, год рождения: ~w~n', [FirstName, Patronymic, LastName, BirthYear]).
 
-format_last_name(LastName) :-
-    format('~w~n', [LastName]).
-
-% Запрос 1: Найти всех близнецов
-find_twins :-
-    log_action('Запрос: Найти всех близнецов'),
-    findall(person(FirstName, Patronymic, LastName, BirthYear, Gender, Income, true),
-            person(FirstName, Patronymic, LastName, BirthYear, Gender, Income, true),
-            Twins),
-    (   Twins = [] ->
-        write('Нет близнецов.'), nl
-    ;   foreach(member(Person, Twins), format_person(Person))
+% Запрос 1: Найти всех людей, чей доход меньше заданного
+find_low_income(IncomeThreshold) :-
+    log_action('Запрос: Найти людей с доходом меньше заданного'),
+    findall(person(FirstName, Patronymic, LastName, BirthYear, Gender, Income, IsTwin),
+            (person(FirstName, Patronymic, LastName, BirthYear, Gender, Income, IsTwin),
+             Income < IncomeThreshold),
+            People),
+    (   People = [] ->
+        format('Нет людей с доходом меньше ~w.~n', [IncomeThreshold])
+    ;   foreach(member(Person, People), format_person(Person))
     ).
 
-% Запрос 2: Найти всех детей, родившихся в заданном году
-find_children_by_year(Year) :-
-    log_action('Запрос: Найти детей, родившихся в заданном году'),
-    findall(person(FirstName, Patronymic, LastName, Year, Gender, 0, IsTwin),
-            (family(_, _, Children),
-             member(person(FirstName, Patronymic, LastName, Year, Gender, 0, IsTwin), Children)),
-            Children),
-    (   Children = [] ->
-        format('Нет детей, родившихся в ~w году.~n', [Year])
-    ;   foreach(member(Person, Children), format_person(Person))
-    ).
-
-% Запрос 3: Найти всех работающих жен с доходом больше заданной суммы
-find_working_wives(IncomeThreshold) :-
-    log_action('Запрос: Найти работающих жен с доходом больше заданной суммы'),
-    findall(person(FirstName, Patronymic, LastName, BirthYear, 'женский', Income, IsTwin),
-            (family(_, person(FirstName, Patronymic, LastName, _, 'женский', _, _), _),
-             person(FirstName, Patronymic, LastName, BirthYear, 'женский', Income, IsTwin),
-             Income > IncomeThreshold),
-            Wives),
-    (   Wives = [] ->
-        format('Нет жен с доходом больше ~w.~n', [IncomeThreshold])
-    ;   foreach(member(Person, Wives), format_person(Person))
-    ).
-
-% Запрос 4: Найти фамилии людей с заданным числом детей
-find_families_by_children_count(ChildrenCount) :-
-    log_action('Запрос: Найти фамилии людей с заданным числом детей'),
-    findall(LastName,
-            (family(person(_, _, LastName, _, _, _, _), _, Children),
-             length(Children, ChildrenCount)),
-            HusbandLastNames),
-    findall(LastName,
-            (family(_, person(_, _, LastName, _, _, _, _), Children),
-             length(Children, ChildrenCount)),
-            WifeLastNames),
-    append(HusbandLastNames, WifeLastNames, AllLastNames),
-    sort(AllLastNames, UniqueLastNames),
-    (   UniqueLastNames = [] ->
-        format('Нет семей с ~w детьми.~n', [ChildrenCount])
-    ;   foreach(member(LastName, UniqueLastNames), format_last_name(LastName))
-    ).
-
-% Запрос 5: Найти самого старшего ребенка
-find_oldest_child :-
-    log_action('Запрос: Найти самого старшего ребенка'),
+% Запрос 2: Найти всех детей, младше заданного возраста
+find_young_children(Age) :-
+    log_action('Запрос: Найти детей младше заданного возраста'),
+    CurrentYear is 2025,
+    MinBirthYear is CurrentYear - Age,
     findall(person(FirstName, Patronymic, LastName, BirthYear, Gender, 0, IsTwin),
             (family(_, _, Children),
              member(person(FirstName, Patronymic, LastName, _, _, _, _), Children),
              person(FirstName, Patronymic, LastName, BirthYear, Gender, 0, IsTwin),
-             number(BirthYear)),
-            AllChildren),
-    (   AllChildren = [] ->
-        write('Нет детей в базе данных.'), nl
-    ;   sort(4, @=<, AllChildren, SortedChildren),
-        [OldestChild|_] = SortedChildren,
-        format_person_with_year(OldestChild)
+             BirthYear > MinBirthYear),
+            Children),
+    (   Children = [] ->
+        format('Нет детей младше ~w лет.~n', [Age])
+    ;   foreach(member(Person, Children), format_person_with_year(Person))
     ).
+
+% Запрос 3: Найти всех неработающих жен, которые родились позже заданного года
+find_unemployed_wives(BirthYear) :-
+    log_action('Запрос: Найти неработающих жен, родившихся после заданного года'),
+    findall(person(FirstName, Patronymic, LastName, BirthYearAfter, 'женский', 0, IsTwin),
+            (family(_, person(FirstName, Patronymic, LastName, _, 'женский', _, _), _),
+             person(FirstName, Patronymic, LastName, BirthYearAfter, 'женский', 0, IsTwin),
+             BirthYearAfter > BirthYear),
+            Wives),
+    (   Wives = [] ->
+        format('Нет неработающих жен, родившихся после ~w года.~n', [BirthYear])
+    ;   foreach(member(Person, Wives), format_person_with_year(Person))
+    ).
+
+% Запрос 4: Найти всех детей, у которых разница в возрасте родителей превышает заданную величину
+find_children_by_parent_age_diff(AgeDiff) :-
+    log_action('Запрос: Найти детей с разницей в возрасте родителей больше заданной'),
+    findall(person(CFirst, CPatr, CLast, CBirthYear, CGender, 0, CIsTwin),
+            (family(person(_, _, _, HBirthYear, _, _, _),
+                    person(_, _, _, WBirthYear, _, _, _),
+                    Children),
+             member(person(CFirst, CPatr, CLast, _, _, _, _), Children),
+             person(CFirst, CPatr, CLast, CBirthYear, CGender, 0, CIsTwin),
+             abs(HBirthYear - WBirthYear) > AgeDiff),
+            Children),
+    (   Children = [] ->
+        format('Нет детей с разницей в возрасте родителей больше ~w лет.~n', [AgeDiff])
+    ;   foreach(member(Person, Children), format_person_with_year(Person))
+    ).
+
+% Запрос 5: Подсчитать количество семей, у которых двое детей
+count_families_with_two_children :-
+    log_action('Запрос: Подсчитать количество семей с двумя детьми'),
+    findall(_,
+            (family(_, _, Children),
+             length(Children, 2)),
+            Families),
+    length(Families, Count),
+    format('Количество семей с двумя детьми: ~w~n', [Count]).
 
 % Тестовый предикат
 test :-
     catch(
         (log_action('Запуск теста всех запросов'),
          init_db,
-         write('=== Запрос 1: Все близнецы ==='), nl,
-         find_twins,
+         write('=== Запрос 1: Люди с доходом меньше 50000 ==='), nl,
+         find_low_income(50000),
          nl,
-         write('=== Запрос 2: Дети, родившиеся в 2010 году ==='), nl,
-         find_children_by_year(2010),
+         write('=== Запрос 2: Дети младше 15 лет ==='), nl,
+         find_young_children(15),
          nl,
-         write('=== Запрос 3: Работающие жены с доходом > 85000 ==='), nl,
-         find_working_wives(85000),
+         write('=== Запрос 3: Неработающие жены, родившиеся после 1985 ==='), nl,
+         find_unemployed_wives(1985),
          nl,
-         write('=== Запрос 4: Фамилии людей с 2 детьми ==='), nl,
-         find_families_by_children_count(2),
+         write('=== Запрос 4: Дети с разницей возраста родителей больше 3 лет ==='), nl,
+         find_children_by_parent_age_diff(3),
          nl,
-         write('=== Запрос 5: Самый старший ребенок ==='), nl,
-         find_oldest_child,
-	 save_to_xml('family_updated.xml'),
+         write('=== Запрос 5: Количество семей с двумя детьми ==='), nl,
+         count_families_with_two_children,
+         save_to_xml('family_updated.xml'),
          log_action('Тест завершен')),
         Error,
         (format('Ошибка в тесте: ~w~n', [Error]), fail)
