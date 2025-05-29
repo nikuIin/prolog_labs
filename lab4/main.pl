@@ -22,11 +22,11 @@
 :- http_handler(root(add_child), add_child_page, []).
 :- http_handler(root(add_child_submit), add_child_submit, [method(post)]).
 :- http_handler(root(delete_child), delete_child, [method(post)]).
-:- http_handler(root(query_twins), query_twins, [method(get)]).
-:- http_handler(root(query_children_2010), query_children_2010, [method(get)]).
-:- http_handler(root(query_wives), query_wives, [method(get)]).
+:- http_handler(root(query_low_income), query_low_income, [method(post)]).
+:- http_handler(root(query_young_children), query_young_children, [method(post)]).
+:- http_handler(root(query_unemployed_wives), query_unemployed_wives, [method(post)]).
+:- http_handler(root(query_parent_age_diff), query_parent_age_diff, [method(post)]).
 :- http_handler(root(query_two_children), query_two_children, [method(get)]).
-:- http_handler(root(query_oldest_child), query_oldest_child, [method(get)]).
 
 % Start server
 server :-
@@ -74,7 +74,7 @@ init_db(Request) :-
                     (''Елена'', ''Сергеевна'', ''Петрова'', 1975, ''женский'', 95000, false),
                     (''Сергей'', ''Александрович'', ''Петров'', 1973, ''мужской'', 100000, false),
                     (''Михаил'', ''Сергеевич'', ''Петров'', 2005, ''мужской'', 0, false),
-                    (''Ольга'', ''Дмитриевна'', ''Сидорова'', 1990, ''женский'', 88000, false),
+                    (''Ольга'', ''Дмитриевна'', ''Сидорова'', 1990, ''женский'', 0, false),
                     (''Дмитрий'', ''Васильевич'', ''Сидоров'', 1988, ''мужской'', 92000, false),
                     (''Ксения'', ''Дмитриевна'', ''Сидорова'', 2015, ''женский'', 0, false)'),
     odbc_query(Connection,
@@ -123,7 +123,7 @@ home_page(_Request) :-
     % Children table
     findall(tr([class='border-b'],
                [td([class='px-4 py-2'], FamilyID),
-	        td([class='px-4 py-2'], ChildID),
+                td([class='px-4 py-2'], ChildID),
                 td([class='px-4 py-2'], ChildName)]),
             odbc_query(Connection,
                        'SELECT c.family_id, c.child_id, p.last_name
@@ -161,19 +161,18 @@ home_page(_Request) :-
              table([class='w-full border-collapse border border-gray-300'],
                    [tr([class='bg-gray-100'],
                         [th([class='px-4 py-2'], 'Family ID'),
-			 th([class='px-4 py-2'], 'Chidl ID'),
-                         th([class='px-4 py-2'], 'Child LastName')])|ChildRows]),
+                         th([class='px-4 py-2'], 'Child ID'),
+                         th([class='px-4 py-2'], 'Child Last Name')])|ChildRows]),
              % Action buttons
              div([class='mt-6 flex flex-wrap gap-4'],
                  [
-		 form([action('/add_person'), method(get), class='inline-block'],
+                 form([action('/add_person'), method(get), class='inline-block'],
                        button([type=submit, class='bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600'], 'Add Person')),
-		 form([action('/update_person'), method(get), class='inline-block'],
+                 form([action('/update_person'), method(get), class='inline-block'],
                        button([type=submit, class='bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600'], 'Update Person')),
-		 form([action('/delete_person'), method(post), class='inline-block'],
+                 form([action('/delete_person'), method(post), class='inline-block'],
                        [input([type=text, name=id, placeholder='Person ID', class='border p-2 mr-2']),
                         button([type=submit, class='bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600'], 'Delete Person')]),
-
                   form([action('/add_family'), method(get), class='inline-block'],
                        button([type=submit, class='bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600'], 'Add Family')),
                   form([action('/delete_family'), method(post), class='inline-block'],
@@ -187,17 +186,23 @@ home_page(_Request) :-
                         button([type=submit, class='bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600'], 'Delete Child')]),
                   form([action('/init_db'), method(post), class='inline-block'],
                        button([type=submit, class='bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600'], 'Reset Database'))]),
-             % Query buttons
+             % Query buttons with input fields
              div([class='mt-6 flex flex-wrap gap-4'],
-                 [form([action('/query_twins'), method(get), class='inline-block'],
-                       button([type=submit, class='bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600'], 'Find Twins')),
-                  form([action('/query_children_2010'), method(get), class='inline-block'],
-                       button([type=submit, class='bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600'], 'Children Born in 2010')),
-                  form([action('/query_wives'), method(get), class='inline-block'],
-                       button([type=submit, class='bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600'], 'Working Wives > 85000')),
+                 [form([action('/query_low_income'), method(post), class='inline-block'],
+                       [input([type=number, name=income, placeholder='Max Income', class='border p-2 mr-2']),
+                        button([type=submit, class='bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600'], 'Find Low Income People')]),
+                  form([action('/query_young_children'), method(post), class='inline-block'],
+                       [input([type=number, name=age, placeholder='Max Age', class='border p-2 mr-2']),
+                        button([type=submit, class='bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600'], 'Find Young Children')]),
+                  form([action('/query_unemployed_wives'), method(post), class='inline-block'],
+                       [input([type=number, name=birth_year, placeholder='Min Birth Year', class='border p-2 mr-2']),
+                        button([type=submit, class='bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600'], 'Find Unemployed Wives')]),
+                  form([action('/query_parent_age_diff'), method(post), class='inline-block'],
+                       [input([type=number, name=age_diff, placeholder='Min Age Difference', class='border p-2 mr-2']),
+                        button([type=submit, class='bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600'], 'Find Children by Parent Age Diff')]),
                   form([action('/query_two_children'), method(get), class='inline-block'],
-                       button([type=submit, class='bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600'], 'Families with 2 Children'))
-                  ])
+                       button([type=submit, class='bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600'], 'Count Families with 2 Children'))
+                 ])
             ])).
 
 % Add person page
@@ -342,7 +347,6 @@ delete_person(Request) :-
     odbc_disconnect(Connection),
     http_redirect(moved, '/', Request).
 
-% Add family page
 add_family_page(_Request) :-
     odbc_connect('SWI-Prolog Discourse', Connection, []),
     findall(option([value=ID], Name),
@@ -369,9 +373,10 @@ add_family_page(_Request) :-
                        [label([class='font-semibold'], 'Wife'),
                         select([name=wife_id, class='border p-2 rounded'], WifeOptions)]),
                    div([class='flex space-x-4'],
-                       [input([type=submit, value='Add', class='bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600']),
+                       [input([type(submit), value('Add'), class('bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600')]),
                         a([href='/', class='bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600'], 'Back')])])
             ])).
+
 
 % Add family submit
 add_family_submit(Request) :-
@@ -445,130 +450,169 @@ delete_child(Request) :-
     odbc_disconnect(Connection),
     http_redirect(moved, '/', Request).
 
-% Query 1: Find twins
-query_twins(_Request) :-
+% Query 1: Find people with income less than specified
+query_low_income(Request) :-
+    http_parameters(Request, [income(IncomeAtom, [])]),
+    atom_number(IncomeAtom, Income),
     odbc_connect('SWI-Prolog Discourse', Connection, []),
-    findall([FirstName, Patronymic, LastName],
-            odbc_query(Connection,
-                       'SELECT first_name, patronymic, last_name FROM person WHERE is_twin = TRUE',
-                       row(FirstName, Patronymic, LastName)),
-            Twins),
+    format(atom(Query), 'SELECT first_name, patronymic, last_name, monthly_income FROM person WHERE monthly_income < ~w', [Income]),
+    findall([FirstName, Patronymic, LastName, MonthlyIncome],
+            odbc_query(Connection, Query, row(FirstName, Patronymic, LastName, MonthlyIncome)),
+            People),
     odbc_disconnect(Connection),
-    (Twins = [] -> Message = 'No twins found.' ; Message = ''),
+    (People = [] -> format(atom(Message), 'No people with income less than ~w found.', [Income]) ; Message = ''),
     findall(tr([class='border-b'],
                [td([class='px-4 py-2'], FirstName),
                 td([class='px-4 py-2'], Patronymic),
-                td([class='px-4 py-2'], LastName)]),
-            member([FirstName, Patronymic, LastName], Twins),
+                td([class='px-4 py-2'], LastName),
+                td([class='px-4 py-2'], MonthlyIncome)]),
+            member([FirstName, Patronymic, LastName, MonthlyIncome], People),
             Rows),
     reply_html_page(
-        [title('Find Twins'),
+        [title('Low Income People'),
          link([rel='stylesheet', href='https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css'])],
         div([class='container mx-auto p-4'],
-            [h1([class='text-2xl font-bold mb-4'], 'Twins'),
+            [h1([class='text-2xl font-bold mb-4'], 'People with Income Less Than Specified'),
              p([class='text-gray-600'], Message),
              table([class='w-full border-collapse border border-gray-300'],
                    [tr([class='bg-gray-100'],
                         [th([class='px-4 py-2'], 'First Name'),
                          th([class='px-4 py-2'], 'Patronymic'),
-                         th([class='px-4 py-2'], 'Last Name')])|Rows]),
+                         th([class='px-4 py-2'], 'Last Name'),
+                         th([class='px-4 py-2'], 'Income')])|Rows]),
              a([href='/', class='bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 mt-4 inline-block'], 'Back')
             ])).
 
-% Query 2: Find children born in 2010
-query_children_2010(_Request) :-
+% Query 2: Find children younger than specified age
+query_young_children(Request) :-
+    http_parameters(Request, [age(AgeAtom, [])]),
+    atom_number(AgeAtom, Age),
+    CurrentYear is 2025, % Assuming current year is 2025
+    MinBirthYear is CurrentYear - Age,
     odbc_connect('SWI-Prolog Discourse', Connection, []),
-    findall([FirstName, Patronymic, LastName],
-            odbc_query(Connection,
-                       'SELECT p.first_name, p.patronymic, p.last_name
-                        FROM person p
-                        JOIN children c ON p.id = c.child_id
-                        WHERE p.birth_year = 2010',
-                       row(FirstName, Patronymic, LastName)),
+    format(atom(Query), 'SELECT p.first_name, p.patronymic, p.last_name, p.birth_year
+                         FROM person p
+                         JOIN children c ON p.id = c.child_id
+                         WHERE p.birth_year > ~w', [MinBirthYear]),
+    findall([FirstName, Patronymic, LastName, BirthYear],
+            odbc_query(Connection, Query, row(FirstName, Patronymic, LastName, BirthYear)),
             Children),
     odbc_disconnect(Connection),
-    (Children = [] -> Message = 'No children born in 2010 found.' ; Message = ''),
+    (Children = [] -> format(atom(Message), 'No children younger than ~w found.', [Age]) ; Message = ''),
     findall(tr([class='border-b'],
                [td([class='px-4 py-2'], FirstName),
                 td([class='px-4 py-2'], Patronymic),
-                td([class='px-4 py-2'], LastName)]),
-            member([FirstName, Patronymic, LastName], Children),
+                td([class='px-4 py-2'], LastName),
+                td([class='px-4 py-2'], BirthYear)]),
+            member([FirstName, Patronymic, LastName, BirthYear], Children),
             Rows),
     reply_html_page(
-        [title('Children Born in 2010'),
+        [title('Young Children'),
          link([rel='stylesheet', href='https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css'])],
         div([class='container mx-auto p-4'],
-            [h1([class='text-2xl font-bold mb-4'], 'Children Born in 2010'),
+            [h1([class='text-2xl font-bold mb-4'], 'Children Younger Than Specified Age'),
              p([class='text-gray-600'], Message),
              table([class='w-full border-collapse border border-gray-300'],
                    [tr([class='bg-gray-100'],
                         [th([class='px-4 py-2'], 'First Name'),
                          th([class='px-4 py-2'], 'Patronymic'),
-                         th([class='px-4 py-2'], 'Last Name')])|Rows]),
+                         th([class='px-4 py-2'], 'Last Name'),
+                         th([class='px-4 py-2'], 'Birth Year')])|Rows]),
              a([href='/', class='bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 mt-4 inline-block'], 'Back')
             ])).
 
-% Query 3: Find working wives with income > 85000
-query_wives(_Request) :-
+% Query 3: Find unemployed wives born after specified year
+query_unemployed_wives(Request) :-
+    http_parameters(Request, [birth_year(BirthYearAtom, [])]),
+    atom_number(BirthYearAtom, BirthYear),
     odbc_connect('SWI-Prolog Discourse', Connection, []),
-    findall([FirstName, Patronymic, LastName],
-            odbc_query(Connection,
-                       'SELECT p.first_name, p.patronymic, p.last_name
-                        FROM person p
-                        JOIN family f ON p.id = f.wife_id
-                        WHERE p.gender = ''женский'' AND p.monthly_income > 80000',
-                       row(FirstName, Patronymic, LastName)),
+    format(atom(Query), 'SELECT p.first_name, p.patronymic, p.last_name, p.birth_year
+                         FROM person p
+                         JOIN family f ON p.id = f.wife_id
+                         WHERE p.gender = ''женский'' AND p.monthly_income = 0 AND p.birth_year > ~w', [BirthYear]),
+    findall([FirstName, Patronymic, LastName, BirthYear],
+            odbc_query(Connection, Query, row(FirstName, Patronymic, LastName, BirthYear)),
             Wives),
     odbc_disconnect(Connection),
-    (Wives = [] -> Message = 'No working wives with income > 85000 found.' ; Message = ''),
+    (Wives = [] -> format(atom(Message), 'No unemployed wives born after ~w found.', [BirthYear]) ; Message = ''),
     findall(tr([class='border-b'],
                [td([class='px-4 py-2'], FirstName),
                 td([class='px-4 py-2'], Patronymic),
-                td([class='px-4 py-2'], LastName)]),
-            member([FirstName, Patronymic, LastName], Wives),
+                td([class='px-4 py-2'], LastName),
+                td([class='px-4 py-2'], BirthYear)]),
+            member([FirstName, Patronymic, LastName, BirthYear], Wives),
             Rows),
     reply_html_page(
-        [title('Working Wives'),
+        [title('Unemployed Wives'),
          link([rel='stylesheet', href='https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css'])],
         div([class='container mx-auto p-4'],
-            [h1([class='text-2xl font-bold mb-4'], 'Working Wives with Income > 85000'),
+            [h1([class='text-2xl font-bold mb-4'], 'Unemployed Wives Born After Specified Year'),
              p([class='text-gray-600'], Message),
              table([class='w-full border-collapse border border-gray-300'],
                    [tr([class='bg-gray-100'],
                         [th([class='px-4 py-2'], 'First Name'),
                          th([class='px-4 py-2'], 'Patronymic'),
-                         th([class='px-4 py-2'], 'Last Name')])|Rows]),
+                         th([class='px-4 py-2'], 'Last Name'),
+                         th([class='px-4 py-2'], 'Birth Year')])|Rows]),
              a([href='/', class='bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 mt-4 inline-block'], 'Back')
             ])).
 
-% Query 4: Find families with 2 children
+% Query 4: Find children with parents' age difference exceeding specified value
+query_parent_age_diff(Request) :-
+    http_parameters(Request, [age_diff(AgeDiffAtom, [])]),
+    atom_number(AgeDiffAtom, AgeDiff),
+    odbc_connect('SWI-Prolog Discourse', Connection, []),
+    format(atom(Query), 'SELECT p.first_name, p.patronymic, p.last_name, p.birth_year
+                         FROM person p
+                         JOIN children c ON p.id = c.child_id
+                         JOIN family f ON c.family_id = f.family_id
+                         JOIN person h ON f.husband_id = h.id
+                         JOIN person w ON f.wife_id = w.id
+                         WHERE ABS(h.birth_year - w.birth_year) > ~w', [AgeDiff]),
+    findall([FirstName, Patronymic, LastName, BirthYear],
+            odbc_query(Connection, Query, row(FirstName, Patronymic, LastName, BirthYear)),
+            Children),
+    odbc_disconnect(Connection),
+    (Children = [] -> format(atom(Message), 'No children with parents'' age difference exceeding ~w found.', [AgeDiff]) ; Message = ''),
+    findall(tr([class='border-b'],
+               [td([class='px-4 py-2'], FirstName),
+                td([class='px-4 py-2'], Patronymic),
+                td([class='px-4 py-2'], LastName),
+                td([class='px-4 py-2'], BirthYear)]),
+            member([FirstName, Patronymic, LastName, BirthYear], Children),
+            Rows),
+    reply_html_page(
+        [title('Children by Parent Age Difference'),
+         link([rel='stylesheet', href='https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css'])],
+        div([class='container mx-auto p-4'],
+            [h1([class='text-2xl font-bold mb-4'], 'Children with Parents'' Age Difference Exceeding Specified Value'),
+             p([class='text-gray-600'], Message),
+             table([class='w-full border-collapse border border-gray-300'],
+                   [tr([class='bg-gray-100'],
+                        [th([class='px-4 py-2'], 'First Name'),
+                         th([class='px-4 py-2'], 'Patronymic'),
+                         th([class='px-4 py-2'], 'Last Name'),
+                         th([class='px-4 py-2'], 'Birth Year')])|Rows]),
+             a([href='/', class='bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 mt-4 inline-block'], 'Back')
+            ])).
+
+% Query 5: Count families with exactly two children
 query_two_children(_Request) :-
     odbc_connect('SWI-Prolog Discourse', Connection, []),
-    findall([LastName],
-            odbc_query(Connection,
-                       'SELECT p.last_name
-                        FROM person p
-                        JOIN family f ON p.id = f.husband_id OR p.id = f.wife_id
-                        JOIN children c ON f.family_id = c.family_id
-                        GROUP BY f.family_id, p.last_name
-                        HAVING COUNT(c.child_id) = 2',
-                       row(LastName)),
-            Families),
+    odbc_query(Connection,
+               'SELECT COUNT(DISTINCT f.family_id) AS count
+                FROM family f
+                JOIN children c ON f.family_id = c.family_id
+                GROUP BY f.family_id
+                HAVING COUNT(c.child_id) = 2',
+               row(Count)),
     odbc_disconnect(Connection),
-    (Families = [] -> Message = 'No families with 2 children found.' ; Message = ''),
-    findall(tr([class='border-b'],
-               [td([class='px-4 py-2'], LastName)]),
-            member([LastName], Families),
-            Rows),
+    format(atom(Message), 'Number of families with exactly 2 children: ~w', [Count]),
     reply_html_page(
         [title('Families with 2 Children'),
          link([rel='stylesheet', href='https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css'])],
         div([class='container mx-auto p-4'],
-            [h1([class='text-2xl font-bold mb-4'], 'Families with 2 Children'),
+            [h1([class='text-2xl font-bold mb-4'], 'Families with Exactly 2 Children'),
              p([class='text-gray-600'], Message),
-             table([class='w-full border-collapse border border-gray-300'],
-                   [tr([class='bg-gray-100'],
-                        [th([class='px-4 py-2'], 'Last Name')])|Rows]),
              a([href='/', class='bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 mt-4 inline-block'], 'Back')
             ])).
-
